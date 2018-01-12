@@ -10,8 +10,8 @@ public class Connection extends Thread {
     public Socket client;
     public String userName = "USER_NAME";
 
-    private BufferedWriter clientOutputStream;
-    private BufferedReader clientInputStream;
+    private DataOutputStream clientOutputStream;
+    private DataInputStream clientInputStream;
     private ArrayList<Connection> connections;
 
     private ArrayList<String> chatCommands;
@@ -21,8 +21,8 @@ public class Connection extends Thread {
         this.client = client;
         this.connections = connections;
         try {
-            clientOutputStream = new BufferedWriter(new OutputStreamWriter(client.getOutputStream()));
-            clientInputStream = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            clientOutputStream = new DataOutputStream(client.getOutputStream());
+            clientInputStream = new DataInputStream(client.getInputStream());
         } catch (IOException e) {
             throw new ConnectionConstructorException(this + " : can't get I/O stream");
         }
@@ -76,11 +76,11 @@ public class Connection extends Thread {
     }
 
     public void sendMessageToClient(String message) throws IOException {
-        clientOutputStream.write(message);
+        clientOutputStream.writeUTF(message);
     }
 
     public String getMessageFromClient() throws IOException {
-        return clientInputStream.readLine();
+        return clientInputStream.readUTF();
     }
 
     public String toString() {
@@ -119,29 +119,29 @@ public class Connection extends Thread {
 
     private void ChatAlgorithm() throws IOException {
 
-        ArrayList<Connection> chatUsers = new ArrayList<>();
-        chatUsers.add(this);
-
-        String message;
-
-        while (true) {
-            for (Connection user : chatUsers)
-                if (user.clientInputStream.ready())
-                {
-                    message = user.getMessageFromClient();
-                    if (!isChatCommand(message))
-                        for (Connection anotherUser : chatUsers)
-                            anotherUser.sendMessageToClient("[" + user.userName + "] : " +  message);
-                    else {
-
-                        switch (chatCommands.indexOf(message)) {
-                            case 0 : addUserInChat(message.substring(chatCommands.get(0).length()), chatUsers); break;
-                            case 1 : removeUserFromChat(message.substring(chatCommands.get(1).length()), chatUsers); break;
-                        }
-
-                    }
-                }
-        }
+//        ArrayList<Connection> chatUsers = new ArrayList<>();
+//        chatUsers.add(this);
+//
+//        String message;
+//
+//        while (true) {
+//            for (Connection user : chatUsers)
+//                if (user.clientInputStream.ready())
+//                {
+//                    message = user.getMessageFromClient();
+//                    if (!isChatCommand(message))
+//                        for (Connection anotherUser : chatUsers)
+//                            anotherUser.sendMessageToClient("[" + user.userName + "] : " +  message);
+//                    else {
+//
+//                        switch (chatCommands.indexOf(message)) {
+//                            case 0 : addUserInChat(message.substring(chatCommands.get(0).length()), chatUsers); break;
+//                            case 1 : removeUserFromChat(message.substring(chatCommands.get(1).length()), chatUsers); break;
+//                        }
+//
+//                    }
+//                }
+//        }
 
     }
 
