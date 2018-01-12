@@ -62,6 +62,7 @@ public class Connection extends Thread {
         }
 
         MenuAlgorithm();
+        out.println(this + " : successfully end of run method");
     }
 
     private void disconnect() {
@@ -70,9 +71,12 @@ public class Connection extends Thread {
             clientInputStream.close();
             client.close();
             connections.remove(this);
+            this.interrupt();
         } catch (IOException e) {
             out.println(this + "disconnection error");
         }
+
+        out.println(this + " : successfully disconnected");
     }
 
     public void sendMessageToClient(String message) throws IOException {
@@ -114,7 +118,7 @@ public class Connection extends Thread {
                 disconnect();
             }
         }
-        out.println(this + " : successfully disconnected");
+        out.println(this + " : successfully end of menu method");
     }
 
     private void ChatAlgorithm() throws IOException {
