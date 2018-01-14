@@ -1,9 +1,7 @@
-import static java.lang.System.out;
-
 import java.io.*;
-import java.util.ArrayList;
 import java.net.Socket;
-import java.util.TreeSet;
+import java.util.ArrayList;
+import static java.lang.System.out;
 
 public class Connection extends Thread {
 
@@ -14,8 +12,59 @@ public class Connection extends Thread {
     private DataInputStream clientInputStream;
     private ArrayList<Connection> connections;
 
-    private ArrayList<String> chatCommands;
-    private ArrayList<String> menuCommands;
+    private String menuHelp;
+    private String connectionHelp;
+    private String waitForConnectionHelp;
+    private String chatHelp;
+    private String blacklistHelp;
+
+    public boolean isWaiting = false;
+
+    private void createHelps() {
+        menuHelp = "\n===MENU MODE===" +
+                "\nThis menu is the main menu of this program. All you need to chatting you can find here." +
+                "\n" +
+                "\nCOMMANDS :" +
+                "\nHELP                 : see mode commands and describe" +
+                "\nLIST USERS           : see users online" +
+                "\nCONNECT TO USER      : start chat" +
+                "\nWAIT FOR CONNECTION  : wait for connection by any other user" +
+                "\nBLACKLIST            : add/remove user in/from blacklist" +
+                "\nEXIT                 : close program";
+
+        connectionHelp = "\n===CONNECTION MODE===" +
+                "\nIn this mode you can try to start chat with any online user, which is in waiting mode." +
+                "\n" +
+                "\nCOMMANDS :" +
+                "\nLIST USERS               : see users online" +
+                "\nCONNECT TO [USERNAME]    : try to start chat with user with name USERNAME. Write it without brackets." +
+                "\nBACK                     : return to main menu mode";
+
+        waitForConnectionHelp = "\n===WAIT FOR CONNECTION MODE" +
+                "In this mode you waiting for connections by another users," +
+                "\nyou can accept or cancel their offers to chat." +
+                "\n" +
+                "\nCOMMANDS :" +
+                "\n" +
+                "\nLIST USERS   : " +
+                "\nBACK         : return to main menu mode";
+
+        chatHelp = "\n===CHAT MODE===" +
+                "\nIn this mode you can chat with your opponent." +
+                "\nServer don't save your messages, so they can't be safe between two sessions." +
+                "\n" +
+                "\nCOMMANDS :" +
+                "\nCLOSE : close chat session";
+
+        blacklistHelp = "\n===BLACKLIST MODE===" +
+                "\nThis mode allows you to add/remove user in/from blacklist." +
+                "\nUsers in blacklist can't offer you to start chat." +
+                "\nBlacklist can't be safe between two program sessions." +
+                "\n" +
+                "\nCOMMANDS :" +
+                "\nADD [USERNAME]       : add user with name USERNAME in blacklist." +
+                "\nREMOVE [USERNAME]    : remove user with name USERNAME from blacklist.";
+    }
 
     public Connection(Socket client, ArrayList<Connection> connections) throws ConnectionConstructorException {
         this.client = client;
@@ -27,27 +76,86 @@ public class Connection extends Thread {
             throw new ConnectionConstructorException(this + " : can't get I/O stream");
         }
 
-        createChatCommands();
-        createMenuCommands();
-
+        createHelps();
         out.println(this + " : successfully created");
     }
 
-    private void createChatCommands() {
-        chatCommands = new ArrayList<>();
+    private void menuMode() {
 
-        chatCommands.add("ADDUSER");
-        chatCommands.add("REMOVEUSER");
-        chatCommands.add("STOPCHAT");
-        chatCommands.add("LEAVECHAT");
+        try {
+            sendMessageToClient(menuHelp);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        out.println(this + " : in menu mode");
+
+        String message;
+
+        connection_life_cycle :
+        while (!client.isClosed()) {
+            try {
+                sendMessageToClient("\n\nset : ");
+                message = getMessageFromClient();
+
+                switch (message) {
+                    case "HELP" : sendMessageToClient(menuHelp); break;
+                    case "LIST USERS" : listUsers(); break;
+                    case "CONNECT TO USER" : connectionMode(); break;
+                    case "WAIT FOR CONNECTION" : waitForConnectionMode(); break;
+                    case "BLACK LIST" : blacklistMode(); break;
+                    case "EXIT" : disconnect(); break connection_life_cycle;
+                    default : sendMessageToClient("Unknown command \"" + message + "\"");
+                }
+            } catch (IOException e) {
+                disconnect();
+            }
+        }
+
+        out.println(this + " : menu method closed");
     }
 
-    private void createMenuCommands() {
-        menuCommands = new ArrayList<>();
+    private void connectionMode() {
+        out.println(this + " : in connection mode");
 
-        menuCommands.add("LIST");
-        menuCommands.add("STARTCHAT");
-        menuCommands.add("EXIT");
+    }
+
+    private void waitForConnectionMode() {
+        out.println(this + " : in waiting mode");
+
+    }
+
+    private void chatMode() {
+        out.println(this + " : in chat mode");
+
+    }
+
+    private void blacklistMode() {
+        out.println(this + " : in blacklist mode");
+
+    }
+
+    private void listUsers() {
+        try {
+            String usersTable = "| INDEX | WAITING | NAME |";
+            Connection connection;
+
+            for (int i = 0; i < connections.size(); i++) {
+                if (i % 50 == 0 && i != 0) {
+                    sendMessageToClient("Printed " + i + "/" + connections.size() + ". Print next 50? (y/n) : ");
+                    if (getMessageFromClient().equalsIgnoreCase("y"))
+                        continue;
+                    break;
+                }
+
+                connection = connections.get(i);
+                usersTable += "\n\t" + (i + 1) + "\t\t" + connection.isWaiting + "\t" + connection.userName;
+            }
+
+            sendMessageToClient(usersTable);
+        } catch (IOException e) {
+            out.println(this + " : list users error");
+        }
     }
 
     @Override
@@ -61,12 +169,13 @@ public class Connection extends Thread {
             disconnect();
         }
 
-        MenuAlgorithm();
-        out.println(this + " : successfully end of run method");
+        menuMode();
+        out.println(this + " : run method closed");
     }
 
     private void disconnect() {
         try {
+            sendMessageToClient("DISCONNECTING");
             clientOutputStream.close();
             clientInputStream.close();
             client.close();
@@ -76,7 +185,7 @@ public class Connection extends Thread {
             out.println(this + "disconnection error");
         }
 
-        out.println(this + " : successfully disconnected");
+        out.println(this + " : disconnect method closed");
     }
 
     public void sendMessageToClient(String message) throws IOException {
@@ -91,93 +200,34 @@ public class Connection extends Thread {
         return "[Connection " + userName + " " + this.client.getInetAddress().getHostAddress() + "]";
     }
 
-    private void MenuAlgorithm() {
-
-        out.println(this + " : menu algorithm started");
-
+    private Connection getConnectionFromUser() throws IOException {
         String message;
-        String menuCommands = "\nHELP : get all commands" +
-                "\nLIST : see users online" +
-                "\nCHAT : start chat" +
-                "\nEXIT : disconnect";
+        Connection connection;
 
-        connection_life_cycle :
-        while (!client.isClosed()) {
-            try {
-                sendMessageToClient("Write \"HELP\" to get commands...");
-                message = getMessageFromClient();
-
-                switch (message) {
-                    case "LIST" : sendMessageToClient(connections.toString()); break;
-                    case "HELP" : sendMessageToClient("Commands :" + menuCommands); break;
-                    case "CHAT" : sendMessageToClient("START CHAT"); ChatAlgorithm(); break;
-                    case "EXIT" : sendMessageToClient("Disconnecting..."); disconnect(); break connection_life_cycle;
-                    default : sendMessageToClient("Unknown command \"" + message + "\"");
-                }
-            } catch (IOException e) {
-                disconnect();
-            }
-        }
-        out.println(this + " : successfully end of menu method");
-    }
-
-    private void ChatAlgorithm() throws IOException {
-
-//        ArrayList<Connection> chatUsers = new ArrayList<>();
-//        chatUsers.add(this);
-//
-//        String message;
-//
-//        while (true) {
-//            for (Connection user : chatUsers)
-//                if (user.clientInputStream.ready())
-//                {
-//                    message = user.getMessageFromClient();
-//                    if (!isChatCommand(message))
-//                        for (Connection anotherUser : chatUsers)
-//                            anotherUser.sendMessageToClient("[" + user.userName + "] : " +  message);
-//                    else {
-//
-//                        switch (chatCommands.indexOf(message)) {
-//                            case 0 : addUserInChat(message.substring(chatCommands.get(0).length()), chatUsers); break;
-//                            case 1 : removeUserFromChat(message.substring(chatCommands.get(1).length()), chatUsers); break;
-//                        }
-//
-//                    }
-//                }
-//        }
-
-    }
-
-    private boolean isChatCommand(String string) {
-        for (String command : chatCommands) {
-            if (string.startsWith(command) || string.equals(command))
-                return true;
-        }
-
-        return false;
-    }
-
-    private void addUserInChat(String name, ArrayList<Connection> users) {
-
-        for (Connection connection : connections) {
-            if (connection.userName.equals(name))
+        do {
+            sendMessageToClient("GET CONNECTION");
+            message = getMessageFromClient();
+            if (message.equals("LEAVE"))
             {
-                users.add(connection);
-                break;
+                sendMessageToClient("LEAVE");
+                return null;
             }
-        }
+
+            connection = findConnectionByName(message);
+        } while (connection == null);
+
+        sendMessageToClient("CONNECTION FOUND");
+        return connection;
     }
 
-    private void removeUserFromChat(String name, ArrayList<Connection> users) {
-
-        for (Connection connection : connections) {
-            if (connection.userName.equals(name))
-            {
-                users.remove(connection);
-                break;
+    private Connection findConnectionByName(String name) {
+        if (!name.equals(this.userName))
+            for (Connection connection : connections) {
+                if (name.equals(connection.userName))
+                    return connection;
             }
-        }
+
+        return null;
     }
 
     public class ConnectionConstructorException extends Exception {
