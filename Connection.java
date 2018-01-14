@@ -36,6 +36,7 @@ public class Connection extends Thread {
                 "\nIn this mode you can try to start chat with any online user, which is in waiting mode." +
                 "\n" +
                 "\nCOMMANDS :" +
+                "\nHELP                     : see mode commands and describe" +
                 "\nLIST USERS               : see users online" +
                 "\nCONNECT TO [USERNAME]    : try to start chat with user with name USERNAME. Write it without brackets." +
                 "\nBACK                     : return to main menu mode";
@@ -45,7 +46,7 @@ public class Connection extends Thread {
                 "\nyou can accept or cancel their offers to chat." +
                 "\n" +
                 "\nCOMMANDS :" +
-                "\n" +
+                "\nHELP         : see mode commands and describe" +
                 "\nLIST USERS   : " +
                 "\nBACK         : return to main menu mode";
 
@@ -54,6 +55,7 @@ public class Connection extends Thread {
                 "\nServer don't save your messages, so they can't be safe between two sessions." +
                 "\n" +
                 "\nCOMMANDS :" +
+                "\nHELP  : see mode commands and describe" +
                 "\nCLOSE : close chat session";
 
         blacklistHelp = "\n===BLACKLIST MODE===" +
@@ -62,8 +64,10 @@ public class Connection extends Thread {
                 "\nBlacklist can't be safe between two program sessions." +
                 "\n" +
                 "\nCOMMANDS :" +
-                "\nADD [USERNAME]       : add user with name USERNAME in blacklist." +
-                "\nREMOVE [USERNAME]    : remove user with name USERNAME from blacklist.";
+                "\nHELP                 : see mode commands and describe" +
+                "\nADD [USERNAME]       : add user with name USERNAME in blacklist" +
+                "\nREMOVE [USERNAME]    : remove user with name USERNAME from blacklist" +
+                "\nBACK                 : return to main menu mode";
     }
 
     public Connection(Socket client, ArrayList<Connection> connections) throws ConnectionConstructorException {
@@ -81,7 +85,6 @@ public class Connection extends Thread {
     }
 
     private void menuMode() {
-
         try {
             sendMessageToClient(menuHelp);
         } catch (IOException e) {
@@ -93,7 +96,7 @@ public class Connection extends Thread {
         String message;
 
         connection_life_cycle :
-        while (!client.isClosed()) {
+        while (!client.isClosed())
             try {
                 sendMessageToClient("\n\nset : ");
                 message = getMessageFromClient();
@@ -110,24 +113,60 @@ public class Connection extends Thread {
             } catch (IOException e) {
                 disconnect();
             }
-        }
 
         out.println(this + " : menu method closed");
     }
 
     private void connectionMode() {
         out.println(this + " : in connection mode");
+        try {
+            sendMessageToClient(connectionHelp);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
+        String message;
+        Connection connection;
+
+        while (true)
+            try {
+                sendMessageToClient("\n\nset : ");
+                message = getMessageFromClient();
+
+                if (message.equals("LIST USERS")) {
+                    listUsers();
+                }
+                else if (message.startsWith("CONNECT TO ")) {
+                    connection = getConnectionByName(message.substring("CONNECT TO ".length()));
+                    if (connection != null)
+                        chatMode(connection);
+                    else sendMessageToClient("no such user in waiting mode...");
+                }
+                else if (message.equals("BACK"))
+                    break;
+                else if (message.equals("HELP"))
+                    sendMessageToClient(connectionHelp);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            out.println(this + " : connection mode closed");
     }
 
     private void waitForConnectionMode() {
         out.println(this + " : in waiting mode");
-
+//        isWaiting = true;
     }
 
-    private void chatMode() {
+    private void chatMode(Connection opponent) {
         out.println(this + " : in chat mode");
 
+        try {
+            sendMessageToClient("starting chat with opponent " + opponent);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void blacklistMode() {
@@ -137,7 +176,7 @@ public class Connection extends Thread {
 
     private void listUsers() {
         try {
-            String usersTable = "| INDEX | WAITING | NAME |";
+            String usersTable = "\n\n| INDEX | WAITING | NAME |";
             Connection connection;
 
             for (int i = 0; i < connections.size(); i++) {
@@ -152,7 +191,7 @@ public class Connection extends Thread {
                 usersTable += "\n\t" + (i + 1) + "\t\t" + connection.isWaiting + "\t" + connection.userName;
             }
 
-            sendMessageToClient(usersTable);
+            sendMessageToClient(usersTable + "\n\n");
         } catch (IOException e) {
             out.println(this + " : list users error");
         }
@@ -200,30 +239,10 @@ public class Connection extends Thread {
         return "[Connection " + userName + " " + this.client.getInetAddress().getHostAddress() + "]";
     }
 
-    private Connection getConnectionFromUser() throws IOException {
-        String message;
-        Connection connection;
-
-        do {
-            sendMessageToClient("GET CONNECTION");
-            message = getMessageFromClient();
-            if (message.equals("LEAVE"))
-            {
-                sendMessageToClient("LEAVE");
-                return null;
-            }
-
-            connection = findConnectionByName(message);
-        } while (connection == null);
-
-        sendMessageToClient("CONNECTION FOUND");
-        return connection;
-    }
-
-    private Connection findConnectionByName(String name) {
+    private Connection getConnectionByName(String name) {
         if (!name.equals(this.userName))
             for (Connection connection : connections) {
-                if (name.equals(connection.userName))
+                if (name.equals(connection.userName) && connection.isWaiting)
                     return connection;
             }
 

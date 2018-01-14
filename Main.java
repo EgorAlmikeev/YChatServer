@@ -25,7 +25,10 @@ public class Main {
             }
 
 
-                connectionManager.serverSocket.close();
+            for (Connection connection : connectionManager.connections)
+                connection.client.close();
+
+            connectionManager.serverSocket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
