@@ -14,7 +14,7 @@ public class Connection extends Thread {
 
     private String menuHelp;
     private String connectionHelp;
-    private String waitForConnectionHelp;
+    private String waitHelp;
     private String chatHelp;
     private String blacklistHelp;
 
@@ -28,7 +28,7 @@ public class Connection extends Thread {
                 "\nHELP                 : see mode commands and describe" +
                 "\nLIST                 : see users online" +
                 "\nCONNECT              : start chat" +
-                "\nWAIT                 : wait for connection by any other user" +
+                "\nWAIT                 : on/off waiting mode" +
                 "\nBLACKLIST            : add/remove user in/from blacklist" +
                 "\nEXIT                 : close program";
 
@@ -41,14 +41,8 @@ public class Connection extends Thread {
                 "\nCONNECT TO [USERNAME]    : try to start chat with user with name USERNAME. Write it without brackets." +
                 "\nBACK                     : return to main menu mode";
 
-        waitForConnectionHelp = "\n===WAIT FOR CONNECTION MODE" +
-                "In this mode you waiting for connections by another users," +
-                "\nyou can accept or cancel their offers to chat." +
-                "\n" +
-                "\nCOMMANDS :" +
-                "\nHELP         : see mode commands and describe" +
-                "\nLIST         : " +
-                "\nBACK         : return to main menu mode";
+        waitHelp = "\n===WAITING MODE===" +
+                "\n";
 
         chatHelp = "\n===CHAT MODE===" +
                 "\nIn this mode you can chat with your opponent." +
@@ -102,7 +96,7 @@ public class Connection extends Thread {
                     case "HELP" : sendMessageToClient(menuHelp); break;
                     case "LIST" : listUsers(); break;
                     case "CONNECT" : connectionMode(); break;
-                    case "WAIT" : waitForConnectionMode(); break;
+                    case "WAIT" : waitingMode(); break;
                     case "BLACK LIST" : blacklistMode(); break;
                     case "EXIT" : disconnect(); break connection_life_cycle;
                     default : sendMessageToClient("[MAIN MENU] Unknown command \"" + message + "\"");
@@ -132,7 +126,7 @@ public class Connection extends Thread {
             } else if (message.startsWith("CONNECT TO ")) {
                 connection = getConnectionByName(message.substring("CONNECT TO ".length()));
                 if (connection != null)
-                    tryToStartChat(connection);
+                    chatRequest(connection);
                 else sendMessageToClient("no such user in waiting mode...");
             } else if (message.equals("BACK"))
                 break;
@@ -144,53 +138,22 @@ public class Connection extends Thread {
         out.println(this + " : connection mode closed");
     }
 
-    private void waitForConnectionMode() {
-        out.println(this + " : in waiting mode");
+    public void chatRequest(Connection opponent) throws IOException {
+        out.println(this + " sending request to " + opponent + " on thread " + Thread.currentThread());
+        opponent.sendMessageToClient("\n\n[REQUEST] " + this.userName + " want to start chat with you. (y/n) : ");
+        String answer;
+        out.println(opponent + "says " + (answer = opponent.getMessageFromClient()));
+    }
+
+    private void waitingMode() throws IOException {
         isWaiting = !isWaiting;
+        sendMessageToClient("Waiting mode - " + (isWaiting ? "on" : "off"));
     }
 
-    private void tryToStartChat(Connection opponent) throws IOException {
-        out.println(this + " : trying to start chat with " + opponent);
-
-        opponent.isWaiting = false;
-        opponent.sendMessageToClient(this.userName + " is trying to start chat with you\nStart chat? (y/n)");
-        opponent.sendMessageToClient("\n[CONNECTION] set : ");
-
-        String message;
-
-        try {
-            for (int i = 0; i < 10; i++) {
-                this.sleep(1000);
-                if (opponent.clientInputStream.available() != 0)
-                {
-                    if (opponent.getMessageFromClient().equalsIgnoreCase("y"))
-                    {
-                        chatMode(opponent);
-                        break;
-                    }
-                    else {
-                        sendMessageToClient(opponent + " don't want to chat with you...");
-                        break;
-                    }
-                }
-            }
-
-            opponent.sendMessageToClient("\nRequest time out...");
-            sendMessageToClient("\nRequest time out...");
-            opponent.isWaiting = true;
-        } catch (InterruptedException e) {
-            disconnect();
-        }
-    }
-
-    private void chatMode(Connection opponent) {
+    private void chatMode(Connection opponent) throws IOException {
         out.println(this + " : in chat mode");
-
-        try {
-            sendMessageToClient("starting chat with opponent " + opponent);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        sendMessageToClient("starting chat with opponent " + opponent);
+        getMessageFromClient();
     }
 
     private void blacklistMode() {
@@ -198,35 +161,27 @@ public class Connection extends Thread {
 
     }
 
-    private void listUsers() {
-        try {
-            String usersTable = "\n\n| INDEX | WAITING | NAME |";
-            Connection connection;
-
-            for (int i = 0; i < connections.size(); i++) {
-
-                connection = connections.get(i);
-
-                if ((i + 1) % 2 == 0 && (i + 1) != connections.size()) {
-                    usersTable += "\n\t" + (i + 1) + "\t\t" + connection.isWaiting + "\t" + connection.userName;
-                    sendMessageToClient(usersTable + "\n\n");
-                    sendMessageToClient("Printed " + (i + 1) + "/" + connections.size() + ". Print next? (y/n) : ");
-                    if (getMessageFromClient().equalsIgnoreCase("y"))
-                    {
-                        usersTable = "";
-                        continue;
-                    }
-
-                    break;
+    private void listUsers() throws IOException {
+        String usersTable = "\n\n| INDEX | WAITING | NAME |";
+        Connection connection;
+        for (int i = 0; i < connections.size(); i++) {
+            connection = connections.get(i);
+            if ((i + 1) % 10 == 0 && (i + 1) != connections.size()) {
+                usersTable += "\n\t" + (i + 1) + "\t\t" + connection.isWaiting + "\t" + connection.userName;
+                sendMessageToClient(usersTable + "\n\n");
+                sendMessageToClient("Printed " + (i + 1) + "/" + connections.size() + ". Print next? (y/n) : ");
+                if (getMessageFromClient().equalsIgnoreCase("y"))
+                {
+                    usersTable = "";
+                    continue;
                 }
-                else if ((i + 1) == connections.size()) {
-                    usersTable += "\n\t" + (i + 1) + "\t\t" + connection.isWaiting + "\t" + connection.userName;
-                    sendMessageToClient(usersTable + "\n\n");
-                }
-                else usersTable += "\n\t" + (i + 1) + "\t\t" + connection.isWaiting + "\t" + connection.userName;
+                break;
             }
-        } catch (IOException e) {
-            out.println(this + " : list users error");
+            else if ((i + 1) == connections.size()) {
+                usersTable += "\n\t" + (i + 1) + "\t\t" + connection.isWaiting + "\t" + connection.userName;
+                sendMessageToClient(usersTable + "\n\n");
+            }
+            else usersTable += "\n\t" + (i + 1) + "\t\t" + connection.isWaiting + "\t" + connection.userName;
         }
     }
 
@@ -236,10 +191,13 @@ public class Connection extends Thread {
 
         try {
             userName = getMessageFromClient();
+            sendMessageToClient("START CHATTING COMMAND");
             out.println(this + " : logged in");
         } catch (IOException e) {
             disconnect();
         }
+
+        this.setName(this.toString());
 
         menuMode();
         out.println(this + " : run method closed");
